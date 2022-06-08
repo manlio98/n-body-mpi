@@ -8,14 +8,14 @@ Un programma che risolve il problema N-Body simula il comportamento delle partic
 
 ## Breve descrizione della soluzione
 
-Per risolvere il problema si è considerata la soluzione quadratica nel numero di particelle, però anche l'algoritmo Barnes-Hut può essere considerato, ma dovrebbe essere più difficile da sviluppare. Per la parte matematica, cioè nel calcolo della forza dei corpi, si è presa in considerazione la [soluzione di Harrism] (https://github.com/harrism/mini-nbody/blob/master/nbody.c). Il programma è in grado di simulare il processo per un determinato numero di cicli stabiliti dall'utente. Il processo MASTER inizializza un array di body in modo pseudocasuale e lo invia ai processori P-1. Nella nostra soluzione si è deciso che il processo MASTER contribuisce alla computazione, ma si potrebbe anche scegliere che il processo MASTER non partecipi al calcolo. Ogni SLAVE simula la forza dei corpi (bodyForce), solo per i suoi corpi, e invia i risultati dei suoi corpi a tutti gli altri processori, necessari per la fase successiva della simulazione. Al termine della simulazione ogni processo SLAVE invia il suo gruppo di body al processo MASTER il quale stamperà i risultati della simulazione.
+Per risolvere il problema si è considerata la soluzione quadratica nel numero di particelle, però anche l'algoritmo Barnes-Hut può essere considerato, ma dovrebbe essere più difficile da sviluppare. Per la parte matematica, cioè nel calcolo della forza dei corpi, si è presa in considerazione la <a href = "https://github.com/harrism/mini-nbody/blob/master/nbody.c">soluzione sequenziale di Harrism</a>. Il programma è in grado di simulare il processo per un determinato numero di cicli stabiliti dall'utente. Il processo MASTER inizializza un array di body in modo pseudocasuale e lo invia ai processori P-1. Nella nostra soluzione si è deciso che il processo MASTER contribuisce alla computazione, ma si potrebbe anche scegliere che il processo MASTER non partecipi al calcolo. Ogni SLAVE simula la forza dei corpi (bodyForce), solo per i suoi corpi, e invia i risultati dei suoi corpi a tutti gli altri processori, necessari per la fase successiva della simulazione. Al termine della simulazione ogni processo SLAVE invia il suo gruppo di body al processo MASTER il quale stamperà i risultati della simulazione.
 
 ## Dettagli dell’implementazione
 
 In questa sezione si vedrà l'implementazione nei dettagli del problema n-body. Si inizia parlando di come si è rappresentato un singolo body, poi si parla di come si è suddiviso il problema tra i processori, e infine si parla della computazione e comunicazione di ogni processore.
 
 ### Definizione della struttura Body
-Ogni body `e stato rappresentato con una struct, in questo modo:
+Ogni body `e stato rappresentato con una **struct**, in questo modo:
 ``` c
 typedef struct { 
   float x, y, z, vx, vy, vz; 
@@ -30,8 +30,8 @@ MPI_Datatype body_type;
 MPI_Type_contiguous(6,MPI_FLOAT,&body_type);
 MPI_Type_commit(&body_type);
 ```
-Si è definito una nuova variabile bodytype di tipo MPI_Datatype, poi viene chiamata la routine MPI_Type_contiguos che replica 6 volte il tipo di dato float in locazioni di memoria contigue, prima di essere usato nelle comunicazioni il tipo di dato nuovo deve essere commitato tramite la routine MPI_Type_commit.
-Dopo aver creato il nuovo tipo di dato in MPI, si passa alla fase d'inizializzazione dove il processo MASTER in maniera pseudocasuale inizializza i body tramite la funzione randomizedBodies:
+Si è definito una nuova variabile **bodytype** di tipo MPI_Datatype, poi viene chiamata la routine **MPI_Type_contiguos** che replica 6 volte il tipo di dato float in locazioni di memoria contigue, prima di essere usato nelle comunicazioni il tipo di dato nuovo deve essere commitato tramite la routine **MPI_Type_commit.**
+Dopo aver creato il nuovo tipo di dato in MPI, si passa alla fase d'inizializzazione dove il processo MASTER in maniera pseudocasuale inizializza i body tramite la funzione **randomizedBodies**:
 ``` c
  if (world_rank == 0) {
     randomizeBodies(buf, 6*nBodies);
@@ -46,7 +46,7 @@ void randomizeBodies(float *data, int n) {
   
 }
 ```
-Dove il parametro n è indica il numero di body fornito in input al programma, mentre *datà è un puntatore di tipo float che punta all'array di body di dimensione n, che viene definito in questo modo:
+Dove il parametro n è indica il numero di body fornito in input al programma, mentre ***datà** è un puntatore di tipo float che punta all'array di body di dimensione n, che viene definito in questo modo:
 ``` c
 int nBodies = atoi(argv[1]);
 int bytes = nBodies*sizeof(Body);
@@ -54,7 +54,8 @@ float *buf = (float*)malloc(bytes);
 Body *p = (Body*)buf;
 ```
 ### Suddivisione task
-Una volta effettuata la fase d'inizializzazione, bisogna fare in modo che ogni processore riceva un carico di body  di dimensione minore rispetto all'input e dove simula la forza dei corpi  tramite la funzione bodyForce e BodyForceEsclude che verranno presentate in seguito. \newline Per dividere i body tra i processori, si è utilizzato la routine:
+Una volta effettuata la fase d'inizializzazione, bisogna fare in modo che ogni processore riceva un carico di body  di dimensione minore rispetto all'input e dove simula la forza dei corpi  tramite la funzione **bodyForce** e **BodyForceEsclude** che verranno presentate in seguito.
+Per dividere i body tra i processori, si è utilizzato la routine:
 ``` c
 int MPI_Scatterv(const void* buffer_send,
 const int counts_send[],
@@ -77,7 +78,7 @@ Dove:
 - **root:** il rank del processore che invierà i dati ai processori.
 - **communicator:** il communicatore in cui avviene la scatter.
 
-Tramite il seguente snippet di codice si sono calcolati i vari parametri della routine MPI_Scatterv:
+Tramite il seguente snippet di codice si sono calcolati i vari parametri della routine **MPI_Scatterv**:
 ``` c
 int rest = nBodies % (world_size); 
 int portion = nBodies / (world_size); 
@@ -99,7 +100,7 @@ Questo snippet di codice sfrutta che il resto della divisione è sempre minore d
 
 ### Computazione e Comunicazione tra i processi
 
-Terminata la fase di inzializzazione, inzia la fase in cui ogni processo possiede i suoi body  e calcola le forze dei corpi usando bodyForce e bodyForceEsclude. Innanzitutto, si è deciso di utilizzare un tipo di comunicazione non bloccante, perché in questo modo non bisogna attendere il completamento della comunicazione, ma si può compiere altre operazioni e nel nostro caso è la funzione bodyForce che effettua il  calcolo delle forze sui body. La comunicazione non bloccante utilizzata è la routine di MPI denominata **MPI\_Iallgatherv**  che permette di inviare i body di appartenenza a tutti gli altri processori in modo tale da completare la computazione. Dato che si tratta di una comunicazione non bloccante, come ho detto prima, in attesa che la comunicazione venga completata si è sfruttata questo tempo nel calcolare le forze sui body di appartenenza che il processore possiede. Lo snippet di codice che effettua questa fase è il seguente:
+Terminata la fase di inzializzazione, inzia la fase in cui ogni processo possiede i suoi body  e calcola le forze dei corpi usando **bodyForce** e **bodyForceEsclude**. Innanzitutto, si è deciso di utilizzare un tipo di comunicazione non bloccante, perché in questo modo non bisogna attendere il completamento della comunicazione, ma si può compiere altre operazioni e nel nostro caso è la funzione **bodyForce** che effettua il  calcolo delle forze sui body. La comunicazione non bloccante utilizzata è la routine di MPI denominata **MPI_Iallgatherv**  che permette di inviare i body di appartenenza a tutti gli altri processori in modo tale da completare la computazione. Dato che si tratta di una comunicazione non bloccante, come ho detto prima, in attesa che la comunicazione venga completata si è sfruttata questo tempo nel calcolare le forze sui body di appartenenza che il processore possiede. Lo snippet di codice che effettua questa fase è il seguente:
 ``` c
 MPI_Iallgatherv(&p[offset[world_rank]],
 send_counts[world_rank],
@@ -130,7 +131,7 @@ void bodyForce(Body *p, float dt, int n_body) {
   }
 }
 ```
-Dopo che ogni processore calcola le forze sui body, il programma attende che la comunicazione (MPI\_Iallgatherv) tra i processori termini e ciò possibile fare tramite la routine **MPI\_Wait}:**
+Dopo che ogni processore calcola le forze sui body, il programma attende che la comunicazione (MPI_Iallgatherv) tra i processori termini e ciò possibile fare tramite la routine **MPI_Wait:**
 ``` c
 MPI_Wait(&request,&status);
 ```
@@ -374,7 +375,7 @@ Processori | N | Speed-Up
 23  |100000 |12.96 
 24  |100000 |13.65
 
-![Screenshot](Speedup.png}
+![Screenshot](speed_up.png}
 
 Da come si nota dal grafico siamo molto lontano dallo speed-up ideale, un'idea di ciò potrebbe essere dal fatto che ogni processore dovrà effettuare sempre la computazione su un numero di particelle molto alto in modo tale da aggiornare i valori dei suoi body, quindi ci si allontana molto dal grafico ideale.
 
