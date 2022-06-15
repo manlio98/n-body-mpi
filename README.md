@@ -375,7 +375,7 @@ Processori | N | Speed-Up
 23  |100000 |12.96 
 24  |100000 |13.65
 
-![Screenshot](speed_up.png}
+![Screenshot](speed_up.png)
 
 Da come si nota dal grafico siamo molto lontano dallo speed-up ideale, un'idea di ciò potrebbe essere dal fatto che ogni processore dovrà effettuare sempre la computazione su un numero di particelle molto alto in modo tale da aggiornare i valori dei suoi body, quindi ci si allontana molto dal grafico ideale.
 
